@@ -17,9 +17,21 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 // normally crashes the action invocation, which the browser reports as a
 // bare "Failed to fetch" with no readable message. Catching everything
 // here turns that into a real error string the UI can actually show.
+//
+// Node's fetch() specifically throws a generic "fetch failed" TypeError
+// while the actual reason (DNS failure, connection refused, TLS error,
+// etc.) sits in `.cause` — reading only `.message` hides the real cause,
+// so this unwraps it too.
 function toErrorResult(err: unknown): ActionResult {
   console.error("Auth action error:", err);
-  return { error: err instanceof Error ? err.message : String(err) };
+
+  if (err instanceof Error) {
+    const cause = (err as Error & { cause?: unknown }).cause;
+    const causeMessage = cause instanceof Error ? cause.message : cause ? String(cause) : null;
+    return { error: causeMessage ? `${err.message}: ${causeMessage}` : err.message };
+  }
+
+  return { error: String(err) };
 }
 
 export async function signInWithEmail(values: unknown): Promise<ActionResult> {
