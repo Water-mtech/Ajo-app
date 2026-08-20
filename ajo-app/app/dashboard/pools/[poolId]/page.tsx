@@ -12,6 +12,16 @@ import { formatCurrency, formatDate } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Pool — Ajo" };
 
+type PoolMemberRow = {
+  id: string;
+  user_id: string;
+  role: "admin" | "member";
+  status: "invited" | "active" | "removed" | "completed";
+  payout_position: number | null;
+  has_packed: boolean;
+  profiles: { full_name: string; phone: string | null } | null;
+};
+
 export default async function PoolDetailPage({ params }: { params: { poolId: string } }) {
   const supabase = createClient();
   const {
@@ -28,13 +38,20 @@ export default async function PoolDetailPage({ params }: { params: { poolId: str
 
   if (!pool) notFound();
 
-  const { data: members } = await supabase
+  const { data: membersData } = await supabase
     .from("pool_members")
     .select("id, user_id, role, status, payout_position, has_packed, profiles(full_name, phone)")
     .eq("pool_id", params.poolId)
     .order("payout_position", { ascending: true, nullsFirst: false });
 
-  const isAdmin = members?.find((m) => m.user_id === user?.id)?.role === "admin";
+  // Without generated Supabase types, a foreign-table embed like
+  // profiles(...) gets inferred with array cardinality by default (it
+  // has no way to know the FK is actually many-to-one). Going through
+  // `unknown` first tells TypeScript to trust the real runtime shape —
+  // a single object per row — instead of fighting its own inference.
+  const members = (membersData ?? []) as unknown as PoolMemberRow[];
+
+  const isAdmin = members.find((m) => m.user_id === user?.id)?.role === "admin";
 
   let eligibleCount = 0;
   if (isAdmin && (pool.status === "pending" || pool.status === "active")) {

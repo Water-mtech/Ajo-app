@@ -37,14 +37,28 @@ export default async function ApprovalsPage({ params }: { params: { poolId: stri
     .eq("pool_id", params.poolId)
     .order("submitted_at", { ascending: false });
 
-  const initialReceipts: LedgerReceipt[] = (receipts ?? []).map((r) => ({
+  // Same reasoning as the pool detail page: without generated Supabase
+  // types, this embed infers with array cardinality even though it's
+  // actually a single row per receipt. Go through `unknown` first.
+  type ReceiptRow = {
+    id: string;
+    cycle_number: number;
+    amount: number;
+    receipt_url: string;
+    status: "pending" | "approved" | "rejected";
+    submitted_at: string;
+    profiles: { full_name: string } | null;
+  };
+  const receiptRows = (receipts ?? []) as unknown as ReceiptRow[];
+
+  const initialReceipts: LedgerReceipt[] = receiptRows.map((r) => ({
     id: r.id,
     cycle_number: r.cycle_number,
     amount: r.amount,
     receipt_url: r.receipt_url,
     status: r.status,
     submitted_at: r.submitted_at,
-    member_name: (r.profiles as { full_name: string } | null)?.full_name ?? "Member",
+    member_name: r.profiles?.full_name ?? "Member",
   }));
 
   return (
