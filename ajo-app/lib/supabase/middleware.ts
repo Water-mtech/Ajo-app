@@ -61,7 +61,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // 3. /admin requires profiles.is_admin = true
-  if (user && path.startsWith("/admin")) {
+  if (user && path.startsWith("/dashboard/admin")) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("is_admin")
